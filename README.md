@@ -1,10 +1,10 @@
-# Aider4Qwen
+# Aider4IntraLLM
 
 > 基于 [Aider](https://github.com/Aider-AI/aider) v0.86.1 进行二次开发版本
 
 ## 📋 项目背景
 
-在公司内网环境下，目前主流的 AI 编程助手（如 ClaudeCode、CodeX、OpenCode等）由于需要登录验证、环境变量配置，无法在受限的内网环境中使用。为了满足内网开发团队的 **Vibe Coding** 需求，基于本人对aider的体验感受，对开源的 Aider 项目进行二次开发，打造一款适合在公司内网环境的 AI 编程助手。由于我工作的公司部署的模型都是 Qwen 系列，遂项目名称 `aider4Qwen`.
+在公司内网环境下，目前主流的 AI 编程助手（如 ClaudeCode、CodeX、OpenCode等）由于需要登录验证、环境变量配置，无法在受限的内网环境中使用。为了满足内网开发团队的 **Vibe Coding** 需求，基于本人对aider的体验感受，对开源的 Aider 项目进行二次开发，打造一款适合在公司内网环境的 AI 编程助手。（注：公司需要在内网环境部署模型）
 
 ## 🔄 二开改造点
 
