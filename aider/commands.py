@@ -14,6 +14,7 @@ from prompt_toolkit.completion import Completion, PathCompleter
 from prompt_toolkit.document import Document
 
 from aider import models, prompts, voice
+from aider.skills_manager import SkillsManager
 from aider.editor import pipe_editor
 from aider.format_settings import format_settings
 from aider.help import Help, install_help_extra
@@ -36,6 +37,7 @@ class SwitchCoder(Exception):
 class Commands:
     voice = None
     scraper = None
+    _skills_manager = None
 
     def clone(self):
         return Commands(
@@ -83,6 +85,23 @@ class Commands:
 
         # Store the original read-only filenames provided via args.read
         self.original_read_only_fnames = set(original_read_only_fnames or [])
+
+    def _get_skills_manager(self):
+        if self._skills_manager is not None:
+            return self._skills_manager
+
+        roots = []
+        if self.args and getattr(self.args, "skills_dir", None):
+            roots.extend(self.args.skills_dir)
+
+        repo_root = None
+        if self.coder and getattr(self.coder, "root", None):
+            repo_root = self.coder.root
+            # Default: bundled superpowers skills if present.
+            roots.append(Path(repo_root) / "superpowers-main" / "skills")
+
+        self._skills_manager = SkillsManager(roots=roots, repo_root=repo_root)
+        return self._skills_manager
 
     def cmd_model(self, args):
         "Switch the Main Model to a new LLM"
@@ -215,6 +234,143 @@ class Commands:
             models.print_matching_models(self.io, args)
         else:
             self.io.tool_output("Please provide a partial model name to search for.")
+
+    def cmd_skill(self, args):
+        """Skills 管理：列出/查看/加载 AgentSkills 风格的 skills（<skill>/SKILL.md）。"""
+
+        manager = self._get_skills_manager()
+        words = (args or "").strip().split()
+
+        if not words or words[0] in ("help", "-h", "--help"):
+            self.io.tool_output(
+                "\n".join(
+                    [
+                        "用法：",
+                        "  /skill list [关键词]      - 列出可用 skills（可选按关键词过滤）",
+                        "  /skill search <关键词>    - 按名称/描述搜索 skills",
+                        "  /skill show <skill>       - 查看 skill 的元信息与路径",
+                        "  /skill load <skill>       - 将该 skill 的 SKILL.md 加入只读上下文",
+                        "  /skill roots              - 显示 skills 根目录（--skills-dir 与默认目录）",
+                        "",
+                        "提示：默认会尝试加载仓库内 `superpowers-main/skills/`。",
+                        "你也可以通过启动参数 `--skills-dir <path>` 追加更多 skills 目录。",
+                    ]
+                )
+            )
+            return
+
+        subcmd = words[0].lower()
+        rest = " ".join(words[1:]).strip()
+
+        if subcmd in ("roots", "root"):
+            self.io.tool_output("Skills 根目录（按顺序扫描）：")
+            for p in manager.roots:
+                exists = " (存在)" if p.exists() else " (不存在)"
+                self.io.tool_output(f"- {p}{exists}")
+            return
+
+        if subcmd in ("list", "ls"):
+            q = rest.lower()
+            skills = manager.list()
+            if q:
+                skills = [
+                    s
+                    for s in skills
+                    if q in s.name.lower() or (s.description and q in s.description.lower())
+                ]
+            if not skills:
+                self.io.tool_warning("未找到任何 skill。你可以用 --skills-dir 指定 skills 目录。")
+                return
+
+            self.io.tool_output(f"找到 {len(skills)} 个 skill：")
+            for s in skills:
+                desc = (s.description or "").strip()
+                if desc:
+                    self.io.tool_output(f"- {s.name}: {desc}")
+                else:
+                    self.io.tool_output(f"- {s.name}")
+            return
+
+        if subcmd in ("search", "find"):
+            q = rest.lower()
+            if not q:
+                self.io.tool_error("请提供搜索关键词，例如：/skill search debug")
+                return
+            skills = [
+                s
+                for s in manager.list()
+                if q in s.name.lower() or (s.description and q in s.description.lower())
+            ]
+            if not skills:
+                self.io.tool_warning(f"没有匹配 '{rest}' 的 skill。")
+                return
+            self.io.tool_output(f"匹配 '{rest}' 的 skill：")
+            for s in skills:
+                desc = (s.description or "").strip()
+                if desc:
+                    self.io.tool_output(f"- {s.name}: {desc}")
+                else:
+                    self.io.tool_output(f"- {s.name}")
+            return
+
+        if subcmd in ("show", "info"):
+            if not rest:
+                self.io.tool_error("请提供 skill 名称，例如：/skill show brainstorming")
+                return
+            s = manager.get(rest)
+            if not s:
+                self.io.tool_error(f"未找到 skill：{rest}")
+                return
+            self.io.tool_output(f"Skill: {s.name}")
+            if s.description:
+                self.io.tool_output(f"Description: {s.description}")
+            self.io.tool_output(f"Path: {s.skill_md}")
+            if s.triggers:
+                self.io.tool_output("Triggers: " + ", ".join(s.triggers))
+            else:
+                self.io.tool_output("Triggers: (无)")
+            self.io.tool_output(f"Resources: scripts={len(s.scripts)}, references={len(s.references)}, assets={len(s.assets)}")
+            return
+
+        if subcmd in ("load", "use"):
+            if not rest:
+                self.io.tool_error("请提供 skill 名称，例如：/skill load brainstorming")
+                return
+            s = manager.get(rest)
+            if not s:
+                self.io.tool_error(f"未找到 skill：{rest}")
+                return
+
+            if not self.coder:
+                self.io.tool_error("当前会话尚未初始化 coder，无法加载 skill。")
+                return
+
+            abs_path = str(s.skill_md.resolve())
+            if abs_path in self.coder.abs_read_only_fnames:
+                self.io.tool_output(f"Skill 已在只读上下文中：{s.name}")
+                return
+            if abs_path in self.coder.abs_fnames:
+                self.io.tool_output(f"Skill 已作为可编辑文件加入上下文：{s.name}")
+                return
+
+            # Reuse existing read-only add behavior (includes validation & messaging).
+            self._add_read_only_file(abs_path, str(s.skill_md))
+            self.io.tool_output(f"已加载 skill：{s.name}（只读）")
+            return
+
+        self.io.tool_error(
+            f"未知的 /skill 子命令：{subcmd}（用 /skill help 查看用法）"
+        )
+
+    def completions_skill(self):
+        # Provide both subcommands and discovered skill names.
+        manager = self._get_skills_manager()
+        subcmds = ["list", "search", "show", "load", "roots", "help"]
+        try:
+            skills = [s.name for s in manager.list()]
+        except Exception:
+            skills = []
+        return subcmds + skills
 
     def cmd_web(self, args, return_content=False):
         "Scrape a webpage, convert to markdown and send in a message"

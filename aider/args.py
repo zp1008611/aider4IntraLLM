@@ -751,6 +751,16 @@ def get_parser(default_config_files, git_root):
         help="Specify the language to use in the chat (default: None, uses system settings)",
     )
     group.add_argument(
+        "--skills-dir",
+        action="append",
+        default=[],
+        metavar="SKILLS_DIR",
+        help=(
+            "Add an AgentSkills-style skills directory (contains <skill>/SKILL.md). "
+            "May be provided multiple times."
+        ),
+    ).complete = shtab.FILE
+    group.add_argument(
         "--commit-language",
         metavar="COMMIT_LANGUAGE",
         default=None,
