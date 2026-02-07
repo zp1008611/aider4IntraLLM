@@ -13,7 +13,7 @@ from PIL import Image, ImageGrab
 from prompt_toolkit.completion import Completion, PathCompleter
 from prompt_toolkit.document import Document
 
-from aider import models, prompts, voice
+from aider import models, prompts
 from aider.skills_manager import SkillsManager
 from aider.editor import pipe_editor
 from aider.format_settings import format_settings
@@ -97,7 +97,8 @@ class Commands:
         repo_root = None
         if self.coder and getattr(self.coder, "root", None):
             repo_root = self.coder.root
-            # Default: bundled superpowers skills if present.
+            # Default: project-local skills first, then bundled superpowers skills (fallback).
+            roots.append(Path(repo_root) / "skills")
             roots.append(Path(repo_root) / "superpowers-main" / "skills")
 
         self._skills_manager = SkillsManager(roots=roots, repo_root=repo_root)
@@ -252,7 +253,7 @@ class Commands:
                         "  /skill load <skill>       - 将该 skill 的 SKILL.md 加入只读上下文",
                         "  /skill roots              - 显示 skills 根目录（--skills-dir 与默认目录）",
                         "",
-                        "提示：默认会尝试加载仓库内 `superpowers-main/skills/`。",
+                        "提示：默认会优先加载仓库内 `skills/`，并回退尝试 `superpowers-main/skills/`。",
                         "你也可以通过启动参数 `--skills-dir <path>` 追加更多 skills 目录。",
                     ]
                 )
@@ -1389,6 +1390,10 @@ class Commands:
 
     def cmd_voice(self, args):
         "Record and transcribe voice input"
+
+        # Lazy import: voice support has optional/transitive deps that shouldn't
+        # be required for basic usage (or for running most unit tests).
+        from aider import voice
 
         if not self.voice:
             if "OPENAI_API_KEY" not in os.environ:
