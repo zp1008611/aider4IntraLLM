@@ -11,22 +11,23 @@
 ### 计划改造 📝
 
 
-- [ ] 添加skills
+- [ ] 添加skills功能
     - 测试：tests/basic/test_skills.py
     - `python -m pytest -q tests/basic/test_skills.py`
-- [ ] 新增agent模式，按如下步骤下编写代码
+- [ ] 新增agent模式，按如下skills下编写代码
     - brainstorming - Socratic design refinement
     - writing-plans - Detailed implementation plans
     - executing-plans - Batch execution with checkpoints
     - dispatching-parallel-agents - Concurrent subagent workflows
     - requesting-code-review - Pre-review checklist
     - receiving-code-review - Responding to feedback
-- [ ] 优化reflection机制
+- [ ] 优化reflection机制，不再有次数上限
 - [ ] 优化上下文工程
     - [hello_agents](https://github.com/datawhalechina/hello-agents/blob/main/docs/chapter9/%E7%AC%AC%E4%B9%9D%E7%AB%A0%20%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B.md)
     - [上下文工程skills](https://github.com/muratcankoylan/Agent-Skills-for-Context-Engineering)
     - [Denis2054/Context-Engineering-for-Multi-Agent-Systems](https://github.com/Denis2054/Context-Engineering-for-Multi-Agent-Systems)
     - [LongCodeZip](https://github.com/YerbaPage/LongCodeZip)
+- [ ] 参考`opensec`，对于1-100的项目更好地适配
 - [ ] 添加网络搜索工具（只对内网访问白名单的网站进行网络搜索）
 - [ ] 像 software-agent-sdk-main 那样：输入包含 trigger 关键词就自动注入对应 skill 内容”（无需手动 /skill load），我也可以继续帮你把自动触发注入加到 Aider 的消息构建流程里，并做开关配置，避免误触发。
 
